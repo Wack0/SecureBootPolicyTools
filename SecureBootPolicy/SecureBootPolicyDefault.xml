@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This is the default Secure Boot Policy, as found in 19041 bootmgr.
+     Technically it also contains a CanUpdate GUID, but those look unused everywhere.
+     Other than that, it contains BCD rules to enforce Secure Boot.
+     It also contains BCD rules to enforce going through Advanced Options if BitLocker is enabled using TPM key protector.
+     (Thus requiring the use of a BitLocker recovery key.)
+-->
+<SbPolicy xmlns="urn:nt-example:sbpolicy" FriendlyName="Default Secure Boot Policy">
+  <PolicyVersion>1</PolicyVersion>
+  <!-- PolicyPublisher can also be set to "Debug".
+       This will however assume the "Allowed:Prerelease Signers" rule on Win8.1+.
+       (On Win 8.0, PreProduction policies signed by PK are not allowed to load.)
+       So, a custom policy may well not want it to be set.
+  -->
+  <PolicyPublisher>PreProduction</PolicyPublisher>
+  <DeviceID>4206913379001</DeviceID>
+  <Rules />
+  <BcdRules>
+    <!-- Enabling testsigning breaks secure boot and CI. Do not allow. -->
+    <BcdRule Object="Any" Element="testsigning">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Boot-time debugging breaks secure boot. Do not allow. -->
+    <BcdRule Object="Any" Element="bootdebug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disabling integrity checks breaks secure boot and CI. Do not allow. -->
+    <BcdRule Object="Any" Element="nointegritychecks">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Prevent disabling event logging in winload. -->
+    <BcdRule Object="osloader" Element="event">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Initial console input could be used to force nointegritychecks/etc. Do not allow. -->
+    <BcdRule Object="Any" Element="initialconsoleinput">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Hypervisor debugging breaks VSM. Do not allow. -->
+    <BcdRule Object="osloader" Element="hypervisordebug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Only allow kernel debugging by going through advanced options. -->
+    <BcdRule Object="osloader" Element="debug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disallow nx=AlwaysOff. -->
+    <BcdRule Object="osloader" Element="nx">
+      <Value><QWordChoice>
+        <Default>0</Default>
+        <Values><Value>0</Value><Value>1</Value><Value>3</Value></Values>
+      </QWordChoice></Value>
+    </BcdRule>
+    <!-- Disallow forced failure. -->
+    <BcdRule Object="osloader" Element="custom:250000C0">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disallow winresume debugging. -->
+    <BcdRule Object="resume" Element="debugoptionenabled">
+      <Value><Boolean>false</Boolean></Value>
+    </BcdRule>
+    <!-- Force isolatedcontext for bitlocker+TPM. (why?) -->
+    <BcdRule Object="Any" Element="isolatedcontext" RequiresBitLockerWithTPM="true">
+      <Value><Boolean>true</Boolean></Value>
+    </BcdRule>
+    <!-- This would never be used in UEFI, and BIOS would not use a secure boot policy. Why is this even here? -->
+    <BcdRule Object="ntldr" Element="bpbstring" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Ensure that for BitLocker+TPM users must go through advancedoptions (requiring recovery key) for Last Known Good Config. -->
+    <BcdRule Object="osloader" Element="lastknowngood" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Ensure that for BitLocker+TPM users must go through advancedoptions (requiring recovery key) for Safe Mode Command Prompt. -->
+    <BcdRule Object="osloader" Element="safebootalternateshell" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- For BitLocker+TPM, ensure that user cannot use a bootstatdevice, for osloader and resume. -->
+    <BcdRule Object="osloader" Element="bootstatdevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <BcdRule Object="resume" Element="bootstatdevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Enforce EV store for osloader for BitLocker+TPM. -->
+    <BcdRule Object="osloader" Element="evstore" RequiresBitLockerWithTPM="true">
+      <Value><Option>Enforced</Option></Value>
+    </BcdRule>
+    <!-- Enforce that the hibernation file device equals the boot device for BitLocker+TPM. -->
+    <BcdRule Object="resume" Element="filedevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Enforced</Option></Value>
+    </BcdRule>
+    <!-- Disallow meddling with physical memory if VBS is enabled. -->
+    <BcdRule Object="Any" Element="truncatememory" RequiresVBS="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <BcdRule Object="Any" Element="avoidlowmemory" RequiresVBS="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+  </BcdRules>
+  <Settings />
+  <EKUs />
+  <!-- No signers / signing scenarios mean the default signers are used. -->
+  <Signers />
+  <SigningScenarios />
+  <CiSigners />
+</SbPolicy>

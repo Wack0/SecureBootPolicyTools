@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31919.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BootAppToEfi", "BootAppToEfi.vcxproj", "{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Debug|x64.ActiveCfg = Debug|x64
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Debug|x64.Build.0 = Debug|x64
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Debug|x86.ActiveCfg = Debug|Win32
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Debug|x86.Build.0 = Debug|Win32
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Release|x64.ActiveCfg = Release|x64
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Release|x64.Build.0 = Release|x64
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Release|x86.ActiveCfg = Release|Win32
+		{A9F6BFD0-80E3-4BC4-808C-9F4A3A425285}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {232B3675-40E7-44EC-8116-121BED242AAF}
+	EndGlobalSection
+EndGlobal

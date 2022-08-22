@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This is the default Secure Boot Policy, as found in 19041 bootmgr.
+     It also contains custom signers mimicing the official ones, for easy extensibility.
+     Technically it also contains a CanUpdate GUID, but those look unused everywhere.
+     Other than that, it contains BCD rules to enforce Secure Boot.
+     It also contains BCD rules to enforce going through Advanced Options if BitLocker is enabled using TPM key protector.
+     (Thus requiring the use of a BitLocker recovery key.)
+-->
+<SbPolicy xmlns="urn:nt-example:sbpolicy" FriendlyName="Default Secure Boot Policy">
+  <PolicyVersion>1</PolicyVersion>
+  <!-- PolicyPublisher can also be set to "Debug".
+       This will however assume the "Allowed:Prerelease Signers" rule on Win8.1+.
+       (On Win 8.0, PreProduction policies signed by PK are not allowed to load.)
+       So, a custom policy may well not want it to be set.
+  -->
+  <PolicyPublisher>PreProduction</PolicyPublisher>
+  <DeviceID>4206913379001</DeviceID>
+  <Rules />
+  <BcdRules>
+    <!-- Enabling testsigning breaks secure boot and CI. Do not allow. -->
+    <BcdRule Object="Any" Element="testsigning">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Boot-time debugging breaks secure boot. Do not allow. -->
+    <BcdRule Object="Any" Element="bootdebug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disabling integrity checks breaks secure boot and CI. Do not allow. -->
+    <BcdRule Object="Any" Element="nointegritychecks">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Prevent disabling event logging in winload. -->
+    <BcdRule Object="osloader" Element="event">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Initial console input could be used to force nointegritychecks/etc. Do not allow. -->
+    <BcdRule Object="Any" Element="initialconsoleinput">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Hypervisor debugging breaks VSM. Do not allow. -->
+    <BcdRule Object="osloader" Element="hypervisordebug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Only allow kernel debugging by going through advanced options. -->
+    <BcdRule Object="osloader" Element="debug">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disallow nx=AlwaysOff. -->
+    <BcdRule Object="osloader" Element="nx">
+      <Value><QWordChoice>
+        <Default>0</Default>
+        <Values><Value>0</Value><Value>1</Value><Value>3</Value></Values>
+      </QWordChoice></Value>
+    </BcdRule>
+    <!-- Disallow forced failure. -->
+    <BcdRule Object="osloader" Element="custom:250000C0">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Disallow winresume debugging. -->
+    <BcdRule Object="resume" Element="debugoptionenabled">
+      <Value><Boolean>false</Boolean></Value>
+    </BcdRule>
+    <!-- Force isolatedcontext for bitlocker+TPM. (why?) -->
+    <BcdRule Object="Any" Element="isolatedcontext" RequiresBitLockerWithTPM="true">
+      <Value><Boolean>true</Boolean></Value>
+    </BcdRule>
+    <!-- This would never be used in UEFI, and BIOS would not use a secure boot policy. Why is this even here? -->
+    <BcdRule Object="ntldr" Element="bpbstring" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Ensure that for BitLocker+TPM users must go through advancedoptions (requiring recovery key) for Last Known Good Config. -->
+    <BcdRule Object="osloader" Element="lastknowngood" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Ensure that for BitLocker+TPM users must go through advancedoptions (requiring recovery key) for Safe Mode Command Prompt. -->
+    <BcdRule Object="osloader" Element="safebootalternateshell" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- For BitLocker+TPM, ensure that user cannot use a bootstatdevice, for osloader and resume. -->
+    <BcdRule Object="osloader" Element="bootstatdevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <BcdRule Object="resume" Element="bootstatdevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <!-- Enforce EV store for osloader for BitLocker+TPM. -->
+    <BcdRule Object="osloader" Element="evstore" RequiresBitLockerWithTPM="true">
+      <Value><Option>Enforced</Option></Value>
+    </BcdRule>
+    <!-- Enforce that the hibernation file device equals the boot device for BitLocker+TPM. -->
+    <BcdRule Object="resume" Element="filedevice" RequiresBitLockerWithTPM="true">
+      <Value><Option>Enforced</Option></Value>
+    </BcdRule>
+    <!-- Disallow meddling with physical memory if VBS is enabled. -->
+    <BcdRule Object="Any" Element="truncatememory" RequiresVBS="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+    <BcdRule Object="Any" Element="avoidlowmemory" RequiresVBS="true">
+      <Value><Option>Ignored</Option></Value>
+    </BcdRule>
+  </BcdRules>
+  <Settings />
+  <EKUs />
+  <EKUs>
+    <EKU ID="ID_EKU_WINDOWS"  Value="2B0601040182370A0306" FriendlyName="Windows System Component - 1.3.6.1.4.1.311.10.3.6 szOID_NT5_CRYPTO" />
+    <EKU ID="ID_EKU_WHQL"     Value="2B0601040182370A0305" FriendlyName="Windows Hardware Driver - 1.3.6.1.4.1.311.10.3.5 szOID_WHQL_CRYPTO" />
+    <EKU ID="ID_EKU_ELAM"     Value="2B0601040182373D0401" FriendlyName="Early Launch - 1.3.6.1.4.1.311.61.4.1 szOID_KP_KERNEL_MODE_TRUSTED_BOOT_SIGNING" />
+    <EKU ID="ID_EKU_HAL_EXT"  Value="2b0601040182373d0501" FriendlyName="HAL Extension - 1.3.6.1.4.1.311.61.5.1 szOID_KP_KERNEL_MODE_HAL_EXTENSION_SIGNING" />
+    <EKU ID="ID_EKU_RT_EXT"   Value="2b0601040182370a0315" FriendlyName="Windows RT Verification - 1.3.6.1.4.1.311.10.3.21 szOID_WINDOWS_RT_SIGNER" />
+    <EKU ID="ID_EKU_STORE"    Value="2b0601040182374c0301" FriendlyName="Windows Store EKU - 1.3.6.1.4.1.311.76.3.1 szOID_WINDOWS_STORE_SIGNER" />
+    <EKU ID="ID_EKU_DCODEGEN" Value="2B0601040182374C0501" FriendlyName="Dynamic Code Generation EKU - 1.3.6.1.4.1.311.76.5.1 szOID_DYNAMIC_CODE_GEN_SIGNER" />
+    <EKU ID="ID_EKU_AM"       Value="2b0601040182374c0b01" FriendlyName="Windows Defender - 1.3.6.1.4.1.311.76.11.1" />
+
+    <EKU ID="ID_EKU_WIN_TCB"  Value="2B0601040182370A0317" FriendlyName="Windows TCB - 1.3.6.1.4.1.311.10.3.23 szOID_WINDOWS_TCB_SIGNER" />
+    <EKU ID="ID_EKU_PP"       Value="2B0601040182370A0318" FriendlyName="Protected Process - 1.3.6.1.4.1.311.10.3.24 szOID_PROTECTED_PROCESS_SIGNER" />
+    <EKU ID="ID_EKU_PPL"      Value="2B0601040182370A0316" FriendlyName="Protected Process Light - 1.3.6.1.4.1.311.10.3.22 szOID_PROTECTED_PROCESS_LIGHT_SIGNER" />
+    <EKU ID="ID_EKU_REVOKER"  Value="2B0601040182370A0313" FriendlyName="Revocation List - 1.3.6.1.4.1.311.10.3.19 szOID_REVOKED_LIST_SIGNER" />
+    <EKU ID="ID_EKU_UNKNOWN"  Value="2B0601040182370A0324" FriendlyName="Unknown - 1.3.6.1.4.1.311.10.3.36" />
+    <EKU ID="ID_EKU_MSFT"     Value="2B0601040182374C0801" FriendlyName="Microsoft - 1.3.6.1.4.1.311.76.8.1 szOID_MICROSOFT_PUBLISHER_SIGNER" />
+    <EKU ID="ID_EKU_UNKNOWN2" Value="2B0601040182374C1401" FriendlyName="Unknown - 1.3.6.1.4.1.311.76.20.1" />
+  </EKUs>
+  <Signers>
+    <!-- For Wellknown CertRoot "01" the certificate chain is too long or 
+      reaches a certificate whose issuer is not in the chain and does not 
+      have the same name as any known Microsoft root. -->
+    <Signer ID="ID_SIGNER_UNKNOWN" Name="Unknown Root">
+      <CertRoot Type="Wellknown" Value="01" />
+    </Signer>
+    <!-- For Wellknown CertRoot "02" the certificate chain reaches a 
+      certificate that is its own issuer but which does not have the same 
+      public key as any known Microsoft root. -->
+    <Signer ID="ID_SIGNER_SELFSIGNED" Name="Self-Signed Root">
+      <CertRoot Type="Wellknown" Value="02" />
+    </Signer>
+    <!-- Each Wellknown CertRoot "03" and higher is a known Microsoft root. 
+      The numbering here is what's known to Windows 10 up to and including 
+      its 1709 release. -->
+    <Signer ID="ID_SIGNER_MSFT1995" Name="Microsoft Authenticode(tm) Root Authority">
+      <CertRoot Type="Wellknown" Value="03" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT1997" Name="Microsoft Root Authority">
+      <CertRoot Type="Wellknown" Value="04" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT2001" Name="Microsoft Root Certificate Authority">
+      <CertRoot Type="Wellknown" Value="05" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT2010" Name="Microsoft Root Certificate Authority 2010">
+      <CertRoot Type="Wellknown" Value="06" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_STD2011" Name="Microsoft Root Certificate Authority 2011">
+      <CertRoot Type="Wellknown" Value="07" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_CODE2006" Name="Microsoft Code Verification Root">
+      <CertRoot Type="Wellknown" Value="08" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_TEST1999" Name="Microsoft Test Root Authority">
+      <CertRoot Type="Wellknown" Value="09" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_TEST2010" Name="Microsoft Testing Root Certificate Authority 2010">
+      <CertRoot Type="Wellknown" Value="0A" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_DMDTEST2005" Name="MS Protected Media Test Root">
+      <CertRoot Type="Wellknown" Value="0B" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_DMD2005" Name="Microsoft Digital Media Authority 2005">
+      <CertRoot Type="Wellknown" Value="0C" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_DMDFLIGHT2005" Name="Microsoft Digital Media Authority 2005 for preview releases">
+      <CertRoot Type="Wellknown" Value="0D" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_FLIGHT2014" Name="Microsoft Development Root Certificate Authority 2014">
+      <CertRoot Type="Wellknown" Value="0E" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_3RDMKT2010" Name="Microsoft Corporation Third Party Marketplace Root">
+      <CertRoot Type="Wellknown" Value="0F" />
+    </Signer>
+    <!-- I don't think the below are actually used anywhere; the non-test ECC roots all seem to be dummied out.
+         However, they are hardcoded in ci and skci these days, so, better mention them...
+     -->
+    <Signer ID="ID_SIGNER_MSFT_ECCTEST2017" Name="Microsoft ECC Testing Root Certificate Authority 2017">
+      <CertRoot Type="Wellknown" Value="10" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_ECCFLIGHT2018" Name="Microsoft ECC Development Root Certificate Authority 2018">
+      <CertRoot Type="Wellknown" Value="11" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_ECC2018" Name="Microsoft ECC Product Root Certificate Authority 2018">
+      <CertRoot Type="Wellknown" Value="12" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_ECCDEV2017" Name="Microsoft ECC Devices Root Certificate Authority 2017">
+      <CertRoot Type="Wellknown" Value="13" />
+    </Signer>
+    <!-- The private key for the below cert is known; distributed in the WDK. -->
+    <Signer ID="ID_SIGNER_OEM_TEST2017" Name="Windows OEM Root 2017 (TEST ONLY)">
+      <CertRoot Type="Wellknown" Value="15" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_IDENTITY2020" Name="Microsoft Identity Verification Root Certificate Authority 2020">
+      <CertRoot Type="Wellknown" Value="16" />
+    </Signer>
+
+    <!-- Official signers. -->
+    <Signer ID="ID_SIGNER_WINDOWS" Name="Microsoft Windows">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_WINDOWS" />
+    </Signer>
+    <Signer ID="ID_SIGNER_HAL_EXT" Name="HAL Extension">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_HAL_EXT" />
+    </Signer>
+    <Signer ID="ID_SIGNER_WHQL" Name="WHQL" >
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_WHQL" />
+    </Signer>
+    <Signer ID="ID_SIGNER_TCB_PP" Name="Protected Process (official)">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_WINDOWS" />
+      <CertEKU ID="ID_EKU_WIN_TCB" />
+      <CertEKU ID="ID_EKU_PP" />
+    </Signer>
+    <Signer ID="ID_SIGNER_TCB_PPL" Name="Protected Process Light (official)">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_WINDOWS" />
+      <CertEKU ID="ID_EKU_WIN_TCB" />
+      <CertEKU ID="ID_EKU_PPL" />
+    </Signer>
+    <Signer ID="ID_SIGNER_DCODEGEN" Name="Protected Process CodeGen">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_DCODEGEN" />
+    </Signer>
+    <Signer ID="ID_SIGNER_WINDOWS_UNKNOWN" Name="Microsoft Windows (Unknown)">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_UNKNOWN" />
+    </Signer>
+    <Signer ID="ID_SIGNER_STORE" Name="Microsoft Store">
+      <CertRoot Type="Wellknown" Value="07" />
+      <CertEKU ID="ID_EKU_STORE" />
+    </Signer>
+    <Signer ID="ID_SIGNER_DEFENDER" Name="Windows Defender">
+      <CertRoot Type="Wellknown" Value="07" />
+      <CertEKU ID="ID_EKU_AM" />
+    </Signer>
+    <Signer ID="ID_SIGNER_MSFT_LEGACY" Name="Microsoft Legacy">
+      <CertRoot Type="Wellknown" Value="05" />
+      <CertEKU ID="ID_EKU_UNKNOWN2" />
+    </Signer>
+    <Signer ID="ID_SIGNER_STORE2" Name="Microsoft Store">
+      <CertRoot Type="Wellknown" Value="07" />
+      <CertEKU ID="ID_EKU_MSFT" />
+    </Signer>
+    <Signer ID="ID_SIGNER_RT_STANDARD" Name="Microsoft Standard Root 2001 RT EKU">
+      <CertRoot Type="Wellknown" Value="07" />
+      <CertEKU ID="ID_EKU_RT_EXT" />
+    </Signer>
+    <Signer ID="ID_SIGNER_ELAM" Name="Early Launch Anti-Malware">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_ELAM" />
+    </Signer>
+    <Signer ID="ID_SIGNER_REVOKER" Name="Revocation List">
+      <CertRoot Type="Wellknown" Value="06" />
+      <CertEKU ID="ID_EKU_REVOKER" />
+    </Signer>
+    
+  <SigningScenarios>
+    <!-- Secure Boot policies support the following scenarios.
+         This is the default signing scenarios, but spelt out for easy updates.
+    -->
+    <SigningScenario Value="6" ID="ID_SIGNINGSCENARIO_STORE" FriendlyName="Microsoft Store">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_STORE" />
+        <CiSigner SignerId="ID_SIGNER_STORE2" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="8" ID="ID_SIGNINGSCENARIO_MICROSOFT" MinimumHashAlgorithm="SHA1" InheritedScenarios="ID_SIGNINGSCENARIO_WINDOWS" FriendlyName="Microsoft">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_MSFT2010" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+        <CiSigner SignerId="ID_SIGNER_DEFENDER" />
+        <CiSigner SignerId="ID_SIGNER_MSFT_LEGACY" />
+        <CiSigner SignerId="ID_SIGNER_WOA" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="11" ID="ID_SIGNINGSCENARIO_DYNAMIC_CODEGEN" FriendlyName="Protected Process NGEN">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_DCODEGEN" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="12" ID="ID_SIGNINGSCENARIO_WINDOWS" FriendlyName="Microsoft Windows">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="14" ID="ID_SIGNINGSCENARIO_WINDOWS_TCB" FriendlyName="Protected Processes">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_TCB_PP" />
+        <CiSigner SignerId="ID_SIGNER_TCB_PPL" />
+      </ProductSigners>
+    </SigningScenario>
+
+    <SigningScenario Value="135" ID="ID_SIGNINGSCENARIO_DRM" MinimumHashAlgorithm="SHA1" FriendlyName="Memecrypto protecting a business model">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_MSFT2010" />
+        <!-- <CiSigner SignerId="ID_SIGNER_WHQL" /> -->
+        <CiSigner SignerId="ID_SIGNER_MSFT_DMD2005" />
+        <CiSigner SignerId="ID_SIGNER_MSFT_DMDFLIGHT2005" />
+      </ProductSigners>
+    </SigningScenario>
+
+    <SigningScenario Value="128" ID="ID_SIGNINGSCENARIO_BOOT_APPS" FriendlyName="Boot Applications">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="129" ID="ID_SIGNINGSCENARIO_HAL_EXTENSIONS" FriendlyName="HAL Extensions">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_HAL_EXT" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="130" ID="ID_SIGNINGSCENARIO_ELAM_DRIVERS" FriendlyName="Early-Launch Anti-Malware Drivers">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_ELAM" />
+        <CiSIgner SignerId="ID_SIGNER_DEFENDER" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="131" ID="ID_SIGNINGSCENARIO_DRIVERS" MinimumHashAlgorithm="SHA1" FriendlyName="Kernel Mode Drivers">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+        <CiSigner SignerId="ID_SIGNER_WHQL" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="132" ID="ID_SIGNINGSCENARIO_BOOT_REVOCATION_LIST" FriendlyName="boot.stl (boot-time revocation list)">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_REVOKER" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="133" ID="ID_SIGNINGSCENARIO_RUNTIME_REVOCATION_LIST" FriendlyName="Driver revocation list">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_REVOKER" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="134" ID="ID_SIGNINGSCENARIO_FIRMWARE_UPDATE" FriendlyName="Firmware Updates (loaded by winload)">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+        <CiSigner SignerId="ID_SIGNER_WHQL" />
+      </ProductSigners>
+    </SigningScenario>
+    <SigningScenario Value="136" ID="ID_SIGNINGSCENARIO_CORE_EXTENSIONS" FriendlyName="Binary loaded before TPM drivers">
+      <ProductSigners>
+        <CiSigner SignerId="ID_SIGNER_WINDOWS" />
+        <CiSigner SignerId="ID_SIGNER_WINDOWS_UNKNOWN" />
+      </ProductSigners>
+    </SigningScenario>
+    <!-- This isn't a real signing scenario.
+         Any CiSigners in here require that binaries loaded from this signer are authorised by a loaded Platform Manifest.
+         In reality, Platform Manifests were introduced at RS1, where support for PK-signed Secure Boot Policies were removed.
+    -->
+    <SigningScenario Value="137" ID="ID_SIGNINGSCENARIO_PLATFORM_MANIFEST_REQUIRED" FriendlyName="Signers where Platform Manifest check is required">
+      <ProductSigners />
+    </SigningScenario>
+    <!-- Again, no point in having anything here -->
+    <SigningScenario Value="138" ID="ID_SIGNINGSCENARIO_PLATFORM_MANIFEST" FriendlyName="Platform Manifest">
+      <ProductSigners />
+    </SigningScenario>
+  </SigningScenarios>
+  <CiSigners />
+</SbPolicy>

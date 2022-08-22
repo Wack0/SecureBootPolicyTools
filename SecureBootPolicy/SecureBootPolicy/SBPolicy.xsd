@@ -1,0 +1,1205 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema
+    targetNamespace="urn:nt-example:sbpolicy"
+    elementFormDefault="qualified"
+    xmlns="urn:nt-example:sbpolicy"
+    xmlns:ps="urn:nt-example:sbpolicy"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+>
+	<!-- A {00000000-0000-0000-0000-000000000000} GUID type -->
+	<xs:simpleType name="GuidType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="\{[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\}"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="DWordType">
+		<xs:restriction base="xs:unsignedInt"/>
+	</xs:simpleType>
+
+	<xs:simpleType name="BooleanType">
+		<xs:restriction base="xs:boolean"/>
+	</xs:simpleType>
+
+	<xs:simpleType name="QWordType">
+		<xs:restriction base="xs:unsignedLong"/>
+	</xs:simpleType>
+
+	<!-- Macros -->
+	<xs:element name="Macros">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Macro" minOccurs="1" maxOccurs="unbounded">
+					<xs:annotation>
+						<xs:documentation>
+							A Macro element defines a text substitution macro that can be used in other elements.
+							Macros are referenced using NMAKE syntax, i.e. $(runtime.windows).
+						</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:attribute name="Id" type="MacroIdType" use="required">
+							<xs:annotation>
+								<xs:documentation>
+									Required. The Id for this macro, used in macro references. For example, if the
+									Id for this macro is "runtime.windows", the macro would be referenced as $(runtime.windows).
+								</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+						<xs:attribute name="Value" type="MacroValueStringType" use="required">
+							<xs:annotation>
+								<xs:documentation>
+									Required. The value that will be substituted for macro references in macro- enabled XML attributes.
+								</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+		<xs:unique name="UniqueMacroId">
+			<xs:selector xpath="ps:Macro" />
+			<xs:field xpath="@Id" />
+		</xs:unique>
+	</xs:element>
+
+	<!--File Path -->
+	<xs:simpleType name="FilePathType">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1"/>
+			<xs:maxLength value="32767"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Sid Type -->
+	<xs:simpleType name="SidType">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="3"/>
+			<!-- Accepts Macros only-->
+			<xs:pattern value="(\$\([a-zA-Z_][a-zA-Z_0-9.]*\))+" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- SignTime Type -->
+	<xs:simpleType name="SignTimeType">
+		<xs:restriction base="xs:dateTime">
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Macro Type -->
+	<xs:simpleType name="MacroIdType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[a-zA-Z_][a-zA-Z_0-9.]*" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Macro Value String Type -->
+	<xs:simpleType name="MacroValueStringType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[a-zA-Z0-9\-_!@#%\^\.,;:=\+~`'\{\}\(\)\[\]\$ \\]*" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- AppIDs Type -->
+	<xs:simpleType name="AppIdType">
+		<xs:annotation>
+			<xs:documentation>
+				AppIDs may use either macros only (and be multi-valued). For example $(Adobe65)$(TestApp)
+				((\$\([a-zA-Z_][a-zA-Z_0-9.]*\))+)
+				or they may be a string that does not begin with a $ and be single valued
+				(^[^\$]([a-zA-Z0-9\-_!@#%\^\.,;:=\+~`'\{\}\(\)\[\]\$ \\])*)
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1"/>
+			<xs:pattern value="(^[^\$]([a-zA-Z0-9\-_!@#%\^\.,;:=\+~`'\{\}\(\)\[\]\$ \\])*)|((\$\([a-zA-Z_][a-zA-Z_0-9.]*\))+)" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Policy Publisher Type -->
+	<xs:simpleType name="PolicyPublisherType">
+		<!-- Only these two GUIDs are allowed if the base policy is signed by PK. -->
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Debug"/>
+			<xs:enumeration value="PreProduction"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="HashAlgorithmType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="MD5"/>
+			<xs:enumeration value="SHA1"/>
+			<xs:enumeration value="SHA256"/>
+			<xs:enumeration value="SHA384"/>
+			<xs:enumeration value="SHA512"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:simpleType name="OptionType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Allowed:Prerelease Signers">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 0 - Allows binaries signed with the Windows PCA 2010 certificate (without lifetime signing EKU).
+						Only use this if you know what you are doing, there are known vulnerable boot applications (in 80xx-82xx timeframe) signed by this cert!
+						Used by all boot applications, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Allowed:Kits Signers">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 1 - Allows binaries signed with the "kits signers".
+						This allows certs with the "Windows Kits Component" EKU.
+						Used by winload, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+
+			<!--
+				Bit 2 - Enable UMCI.
+				Used by winload, ntoskrnl, ci.
+			-->
+			<xs:enumeration value="Enabled:UMCI">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 2 - Enables user-mode code integrity.
+						Used by winload, ntoskrnl, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Disabled:Winload Driver Signature Enforcement Menu">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 3 - Removes the "Disable Driver Signature Enforcement" option from the Advanced Options menu.
+						Used by winload.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Enabled:UMCI Debug Options">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 4 - Enables the use of registry entry HKLM\SYSTEM\CurrentControlSet\Control\CI!UMCIDisabled (REG_DWORD) to disable UMCI.
+						Also enables the use of some other UMCI registry entries(?).
+						Used by winload, ntoskrnl, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Enabled:UMCI Cache Data Volumes">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 5 - Always caches UMCI results.
+						Used by ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Allowed:SeQuerySigningPolicy Extension">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 6 - Allow SeQuerySigningPolicy extension.
+						Used by bootmgr, ntoskrnl, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Required:WHQL">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 7 - Disable third party driver signing. (require WHQL)
+						Used by winload, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Enabled:Filter Edited Boot Options">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 8 - Enable edited boot options filtering.
+						This applies the boot option blacklist to any options entered by a user into the edit boot options menu.
+						So with this enabled, a user cannot use the edit boot options menu to enter /DEBUG, /NOINTEGRITYCHECKS etc.
+						Used by winload.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Disabled:UMCI USN 0 Protection">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 9 - Disables UMCI USN0 protection.
+						winload!OslFwProtectSecureBootVariables main logic is skipped when this is enabled, not sure exactly what this is for..?
+						Used by winload, ci.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Disabled:Winload Debugging Mode Menu">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 10 - Removes the "Debugging Mode" option from the Advanced Options menu.
+						Used by winload.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+
+			<xs:enumeration value="Bit 11"/>
+			<xs:enumeration value="Bit 12"/>
+			<xs:enumeration value="Bit 13"/>
+			
+			<xs:enumeration value="Enabled:UMCI Trust USN 0">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 14 - Used in ~TH2 ci, sets g_CiOptions bit 11. 
+						...trusts USN0, using the variable set by winload!OslFwProtectSecureBootVariables ?
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			
+			<xs:enumeration value="Bit 15"/>
+			<xs:enumeration value="Bit 16"/>
+			<xs:enumeration value="Bit 17"/>
+			<xs:enumeration value="Bit 18"/>
+			<xs:enumeration value="Bit 19"/>
+
+			<xs:enumeration value="Enabled:Flight Signing">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 20 - Enable flightsigning unconditionally, ignoring whatever the BCD says.
+						Used by all boot applications.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Ignored:Flight Signing EKU">
+				<xs:annotation>
+					<xs:documentation>
+						Bit 21 - Ignore flightsigning EKU requirement.
+						This is an extended version of "Allowed:Prerelease Signers" for TH1+.
+						As well as allowing all binaries signed with the Windows PCA 2010 certificate, it also allows all binaries signed with the Mobile PCA 2011 certificate.
+						When allowing these binaries it will override the result of the revocation list checks on certificates.
+						Therefore: ALL certificates chaining back to these are ALWAYS allowed.
+						Even if a certificate in the chain is present in boot.stl, or dbx, they are allowed to load!
+						(File hashes are checked afterwards, so if the hash of the entire file is in dbx or boot.stl, it will still not load.)
+						Only use this if you REALLY know what you are doing!
+						Used by all boot applications.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+
+<!--
+	Loading a secure boot policy signed by PK was removed at the same time as policyhax was fixed in late rs1 dev.
+	Sorry...
+
+	<xs:simpleType name="PolicyType">
+		<xs:annotation>
+			<xs:documentation>
+				Base and Supplemental Policy Types.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Base Policy"/>
+			<xs:enumeration value="Supplemental Policy"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+-->
+	
+	<!-- BCD element object types. -->
+	<xs:simpleType name="BcdObjectType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Any"/> <!-- 0 -->
+			<xs:enumeration value="bootmgr"/> <!-- 0x10100002 -->
+			<xs:enumeration value="osloader"/> <!-- 0x10200003 -->
+			<xs:enumeration value="resume"/> <!-- 0x10200004 -->
+			<xs:enumeration value="memdiag"/> <!-- 0x10200005 -->
+			<xs:enumeration value="ntldr"/> <!-- 0x10300006 -->
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- BCD rule enforcement flags -->
+	<xs:simpleType name="BcdRuleEnforcementType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="BitLockerTPM">
+				<xs:annotation>
+					<xs:documentation>
+						Rule only applies if the OS volume is encrypted, and the VMK was either derived via TPM unsealing, or has bit 0 set in its key flags.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="VBS">
+				<xs:annotation>
+					<xs:documentation>
+						Rule only applies if Virtualisation-Based Security is enabled (TH2+).
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- DWord Range -->
+	<xs:complexType name="DWordRangeType">
+		<xs:sequence>
+			<xs:element name="Default" type="DWordType" />
+			<xs:element name="LowerBound" type="DWordType" />
+			<xs:element name="UpperBound" type="DWordType" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- Collection of DWords -->
+	<xs:complexType name="DWordsType">
+		<xs:sequence>
+				<xs:element name="Value" type="DWordType"  minOccurs="0" maxOccurs="65535" />
+			</xs:sequence>
+	</xs:complexType>
+
+	<!-- DWord Array -->
+	<xs:complexType name="DWordArrayType">
+		<xs:sequence>
+			<xs:element name="Default" type="DWordType" />
+			<xs:element name="Values" type="DWordsType" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- QWord Range -->
+	<xs:complexType name="QWordRangeType">
+		<xs:sequence>
+			<xs:element name="Default" type="QWordType" />
+			<xs:element name="LowerBound" type="QWordType" />
+			<xs:element name="UpperBound" type="QWordType" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- Collection of QWords -->
+	<xs:complexType name="QWordsType">
+			<xs:sequence>
+				<xs:element name="Value" type="QWordType"  minOccurs="0" maxOccurs="65535" />
+			</xs:sequence>
+	</xs:complexType>
+
+	<!-- QWord Array -->
+	<xs:complexType name="QWordArrayType">
+		<xs:sequence>
+			<xs:element name="Default" type="QWordType" />
+			<xs:element name="Values" type="QWordsType" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- Collection of strings -->
+	<xs:complexType name="Strings">
+		<xs:sequence>
+			<xs:element name="String" type="xs:string" minOccurs="0" maxOccurs="65535" />
+		</xs:sequence>
+	</xs:complexType>
+
+	<!-- BCD rule option type -->
+	<xs:simpleType name="BcdRuleOptionType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Ignored">
+				<xs:annotation>
+					<xs:documentation>
+						Any access to this option will instead return STATUS_NOT_FOUND; any attempt to add this option to the system BCD will fail.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="Enforced">
+				<xs:annotation>
+					<xs:documentation>
+						Any attempt to delete this option from the system BCD will fail.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- BCD Rule Value Type -->
+	<xs:complexType name="SettingValueType">
+		<xs:choice>
+			<xs:element name="String" type="xs:string" />
+			<xs:element name="Boolean" type="BooleanType" />
+			<xs:element name="DWord" type="DWordType" />
+			<xs:element name="DWordRange" type="DWordRangeType" />
+			<xs:element name="DWordChoice" type="DWordArrayType" />
+			<xs:element name="QWord" type="QWordType" />
+			<xs:element name="QWordRange" type="QWordRangeType" />
+			<xs:element name="QWordChoice" type="QWordArrayType" />
+			<xs:element name="Option" type="BcdRuleOptionType" />
+			<xs:element name="MultiString" type="Strings" />
+			<xs:element name="Binary" type="xs:hexBinary" />
+		</xs:choice>
+	</xs:complexType>
+
+	<!-- BCD rule -->
+	<xs:element name="BcdRule">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Value" type="SettingValueType"/>
+			</xs:sequence>
+			<xs:attribute name="Object" type="BcdObjectType" use="required" />
+			<xs:attribute name="Element" type="xs:string" use="required" />
+			<xs:attribute name="RequiresBitLockerWithTPM" type="xs:boolean">
+				<!-- 0x20 -->
+				<xs:annotation>
+					<xs:documentation>
+						If true, this rule is only applied when a TPM protector is used to decrypt the BitLocker-encrypted OS volume.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="RequiresVBS" type="xs:boolean">
+				<!-- 0x40 -->
+				<xs:annotation>
+					<xs:documentation>
+						If true, this rule is only applied when Virtualisation-Based Security is enabled.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+<!-- Only useful for a supplemental policy...
+			<xs:attribute name="CanReplace" type="xs:boolean">
+				<!- 0x80 ->
+				<xs:annotation>
+					<xs:documentation>
+						If true, this rule can be merged to replace an existing rule of the same element.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:attribute name="MustReplace" type="xs:boolean">
+				<!- 0x100 ->
+				<xs:annotation>
+					<xs:documentation>
+						If true, this rule is only merged to replace an existing rule of the same element.
+						It will be skipped when merging if no existing rule of the same element exists.
+						Remember: replacement will only occur if CanReplace is true.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+-->
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Collection of BCD rules -->
+	<xs:element name="BcdRules">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of BCD rules.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="65535">
+				<xs:element ref="BcdRule"  minOccurs="0" maxOccurs="65535" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Secure Setting <Key,Value> -->
+	<xs:element name="Setting">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="Value" type="SettingValueType"/>
+			</xs:sequence>
+			<xs:attribute name="Key" type="xs:string" use="required" />
+			<xs:attribute name="ValueName" type="xs:string" use="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Collection of Setting-->
+	<xs:element name="Settings">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of setting elements.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="65535">
+				<xs:element ref="Setting"  minOccurs="0" maxOccurs="65535" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="RuleType">
+		<xs:sequence>
+			<xs:choice>
+				<xs:element name="Option" type="OptionType"/>
+			</xs:choice>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:simpleType name="UShortType">
+		<xs:restriction base="xs:unsignedShort"/>
+	</xs:simpleType>
+
+	<!-- System Integrity Policy Version-->
+	<xs:simpleType name="VersionExType">
+		<xs:restriction base="xs:string">
+			<xs:pattern value="[0-9]*.[0-9]*.[0-9]*.[0-9]*" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- SignerNameType-->
+	<xs:simpleType name="SignerNameType">
+		<xs:restriction base="xs:string">
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Type of CertificateToChainTo-->
+	<xs:simpleType name="CertEnumType">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="TBS"/>
+			<xs:enumeration value="Wellknown"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Certificate EKU -->
+	<xs:element name="CertEKU">
+		<xs:complexType>
+			<xs:attribute name="ID" type="EKUType" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Certificate OEM ID-->
+	<xs:element name="CertOemID">
+		<xs:complexType>
+			<xs:attribute name="Value" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Certificate Publisher -->
+	<xs:element name="CertPublisher">
+		<xs:complexType>
+			<xs:attribute name="Value" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Certificate Issuer-->
+	<xs:element name="CertIssuer">
+		<xs:complexType>
+			<xs:attribute name="Value" type="xs:string" use="required"/>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- certificate to chain to-->
+	<xs:element name="CertRoot">
+		<xs:complexType>
+			<xs:attribute name="Type" type="CertEnumType" use="required" />
+			<!-- Value is either wellknow Root ID or TBS hash, both in hexBinary form-->
+			<xs:attribute name="Value" type="xs:hexBinary" use="required" />
+			<!-- If not given, default is SHA256 -->
+			<xs:attribute name="TbsHashAlgorithm" type="UShortType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Signer Type-->
+	<xs:complexType name="SignerType">
+		<xs:annotation>
+			<xs:documentation>
+				Define a Signer
+			</xs:documentation>
+		</xs:annotation>
+		<xs:sequence minOccurs="1" maxOccurs="1">
+			<xs:element ref="CertRoot" minOccurs="1" maxOccurs="1"/>
+			<xs:element ref="CertEKU" minOccurs="1" maxOccurs="1"/>
+			<xs:element ref="CertPublisher" minOccurs="0" maxOccurs="1"/>
+			<xs:element ref="CertOemID" minOccurs="0" maxOccurs="1"/>
+		</xs:sequence>
+		<xs:attribute name="Name" type="SignerNameType" use="required" />
+		<xs:attribute name="ID" type="SignerIdType" use="required" />
+	</xs:complexType>
+
+	<!-- Signing Scenario Type-->
+	<xs:complexType name="SigningScenarioType">
+		<xs:annotation>
+			<xs:documentation>
+				Define a Signing Scenario type
+			</xs:documentation>
+		</xs:annotation>
+		<xs:sequence minOccurs="1" maxOccurs="1">
+			<xs:element name="ProductSigners" type="CiSignersType" minOccurs="1" maxOccurs="1"/>
+			<xs:element name="TestSigners" type="CiSignersType" minOccurs="0" maxOccurs="1"/>
+			<xs:element name="TestSigningSigners" type="CiSignersType" minOccurs="0" maxOccurs="1"/>
+		</xs:sequence>
+		<xs:attribute name="Name" type="SignerNameType" use="required" />
+		<xs:attribute name="ID" type="SignerIdType" use="required" />
+	</xs:complexType>
+
+	<!-- EKU Type-->
+	<xs:simpleType name="EKUType">
+		<xs:annotation>
+			<xs:documentation>
+				EKU ID type starts with ID_EKU_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_EKU_[A-Z][_A-Z0-9]*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Signing Scenario ID Type -->
+	<xs:simpleType name="SigningScenarioIDType">
+		<xs:annotation>
+			<xs:documentation>
+				Signing Scenario ID type starts with ID_SIGNGINGSCENARIO_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_SIGNINGSCENARIO_[A-Z][_A-Z0-9]*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Signing Scenario IDs Type-->
+	<xs:simpleType name="SigningScenarioIDsType">
+		<xs:annotation>
+			<xs:documentation>
+				Multiple ID_SIGNINGSCENARIO_ seperated by ','
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="((ID_SIGNINGSCENARIO_[A-Z][_A-Z0-9]*)[,]?)*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Allow File Rule ID Type-->
+	<xs:simpleType name="AllowType">
+		<xs:annotation>
+			<xs:documentation>
+				Allow Rule ID should start with ID_ALLOW_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_ALLOW_[A-Z][_A-Z0-9]*" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Generic file attribute type that can be used directly inside a signer-->
+	<xs:simpleType name="FileAttribType">
+		<xs:annotation>
+			<xs:documentation>
+				Generic file rule ID should start with ID_FILEATTRIB_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_FILEATTRIB_[A-Z][_A-Z0-9]*" />
+			<xs:minLength value="10"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- Deny File RUle ID Type-->
+	<xs:simpleType name="DenyType">
+		<xs:annotation>
+			<xs:documentation>
+				Deny Rule ID should start with ID_DENY_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_DENY_[A-Z][_A-Z0-9]*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+
+	<!-- Signer ID Type -->
+	<xs:simpleType name="SignerIdType">
+		<xs:annotation>
+			<xs:documentation>
+				Signer ID should start with ID_SIGNER_
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="ID_SIGNER_[A-Z][_A-Z0-9]*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- FileRulesRef Element-->
+	<xs:element name="FileRulesRef">
+		<xs:annotation>
+			<xs:documentation>
+				FileRulesRef is a collection of FileRuleRef
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="FileRuleRef" minOccurs="1" maxOccurs="10000000" />
+			</xs:sequence>
+			<!-- Work around with XSD.exe http://connect.microsoft.com/VisualStudio/feedback/details/471297 -->
+			<xs:attribute name="Workaround" type="xs:string" />
+		</xs:complexType>
+	</xs:element>
+
+
+	<!-- File Rule ID Type -->
+	<xs:simpleType name="RuleIdType">
+		<xs:annotation>
+			<xs:documentation>
+				Multiple ID_ALLOW_ or ID_DENY_ separated by ','
+			</xs:documentation>
+		</xs:annotation>
+		<xs:restriction base="xs:string">
+			<xs:pattern value="((ID_ALLOW_[A-Z][_A-Z0-9]*))*((ID_DENY_[A-Z][_A-Z0-9]*))*" />
+			<xs:minLength value="1"/>
+		</xs:restriction>
+	</xs:simpleType>
+
+	<!-- FileRuleRef Element -->
+	<xs:element name="FileRuleRef">
+		<xs:annotation>
+			<xs:documentation>
+				Used to reference an file rule through rule ID
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="RuleID" type="RuleIdType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="FileAttribRef">
+		<xs:annotation>
+			<xs:documentation>
+				A FileAttribRef is used to reference a FILE_ATTRIB rule through ID
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="RuleID" type="FileAttribType" use="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- ExceptDenyRule element-->
+	<xs:element name="ExceptDenyRule">
+		<xs:annotation>
+			<xs:documentation>
+				ExceptDenyRule rule is a deny rule type. It makes specific allow Signer conditional.
+				If the allow Signer rule allows, but the exception condition met, then the result
+				is treated as allow signer rule did not match.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="DenyRuleID" type="DenyType" use="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- ExceptAllowRule element-->
+	<xs:element name="ExceptAllowRule">
+		<xs:annotation>
+			<xs:documentation>
+				ExceptAllowRule rule is an allow rule type. It makes specific deny Signer conditional.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="AllowRuleID" type="AllowType" use="required" />
+		</xs:complexType>
+	</xs:element>
+
+
+
+	<!-- EKUs Element-->
+	<xs:element name="EKUs">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of EKUs.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="255">
+				<xs:element ref="EKU"  minOccurs="0" maxOccurs="255" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Define one EKU -->
+	<xs:element name="EKU">
+		<xs:annotation>
+			<xs:documentation>
+				Define an EKU
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="ID" type="EKUType" use="required" />
+			<xs:attribute name="Value" type="xs:hexBinary" use="required" />
+			<xs:attribute name="FriendlyName" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Define File Rule Collection-->
+	<xs:element name="FileRules">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of File Rules.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="Allow"  minOccurs="0" maxOccurs="10000000" />
+				<xs:element ref="Deny"  minOccurs="0" maxOccurs="10000000" />
+				<xs:element ref="FileAttrib"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Allow element -->
+	<xs:element name="Allow">
+		<xs:annotation>
+			<xs:documentation>
+				Define a file allow rule
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="ID" type="AllowType" use="required" />
+			<xs:attribute name="FriendlyName" type="xs:string" use="optional" />
+			<xs:attribute name="FileName" type="xs:string" use="optional" />
+			<xs:attribute name="InternalName" type="xs:string" use="optional" />
+			<xs:attribute name="FileDescription" type="xs:string" use="optional" />
+			<xs:attribute name="ProductName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageFamilyName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MinimumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MaximumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="Hash" type="xs:hexBinary" use="optional" />
+			<xs:attribute name="AppIDs" type="AppIdType" use="optional" />
+			<xs:attribute name="FilePath" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Deny File Rule element-->
+	<xs:element name="Deny">
+		<xs:annotation>
+			<xs:documentation>
+				Define a File deny rule
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="ID" type="DenyType" use="required" />
+			<xs:attribute name="FriendlyName" type="xs:string" use="optional" />
+			<xs:attribute name="FileName" type="xs:string" use="optional" />
+			<xs:attribute name="InternalName" type="xs:string" use="optional" />
+			<xs:attribute name="FileDescription" type="xs:string" use="optional" />
+			<xs:attribute name="ProductName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageFamilyName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MinimumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MaximumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="Hash" type="xs:hexBinary" use="optional" />
+			<xs:attribute name="AppIDs" type="AppIdType" use="optional" />
+			<xs:attribute name="FilePath" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="FileAttrib">
+		<xs:annotation>
+			<xs:documentation>
+				Define a generic file attribute rule than can be combined with Signers
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="ID" type="FileAttribType" use="required" />
+			<xs:attribute name="FriendlyName" type="xs:string" use="optional" />
+			<xs:attribute name="FileName" type="xs:string" use="optional" />
+			<xs:attribute name="InternalName" type="xs:string" use="optional" />
+			<xs:attribute name="FileDescription" type="xs:string" use="optional" />
+			<xs:attribute name="ProductName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageFamilyName" type="xs:string" use="optional" />
+			<xs:attribute name="PackageVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MinimumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="MaximumFileVersion" type="VersionExType" use="optional" />
+			<xs:attribute name="Hash" type="xs:hexBinary" use="optional" />
+			<xs:attribute name="AppIDs" type="AppIdType" use="optional" />
+			<xs:attribute name="FilePath" type="xs:string" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Allowed Signers element-->
+	<xs:element name="AllowedSigners">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of AllowedSigner
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="AllowedSigner" minOccurs="1" maxOccurs="10000000" />
+			</xs:sequence>
+			<!-- Work around with XSD.exe http://connect.microsoft.com/VisualStudio/feedback/details/471297 -->
+			<xs:attribute name="Workaround" type="xs:string" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Denied Signers element-->
+	<xs:element name="DeniedSigners">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of DeniedSigner
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="DeniedSigner" minOccurs="1" maxOccurs="10000000" />
+			</xs:sequence>
+			<!-- Work around with XSD.exe http://connect.microsoft.com/VisualStudio/feedback/details/471297 -->
+			<xs:attribute name="Workaround" type="xs:string" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Allowed Signer element-->
+	<xs:element name="AllowedSigner">
+		<xs:annotation>
+			<xs:documentation>
+				An AllowedSigner defines a signer with condition (with exceptions)
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence minOccurs="1" maxOccurs="1">
+				<xs:element ref="ExceptDenyRule" minOccurs="0" maxOccurs="10000000"/>
+			</xs:sequence>
+			<xs:attribute name="SignerId" type="SignerIdType" use ="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Denied Signer element-->
+	<xs:element name="DeniedSigner">
+		<xs:annotation>
+			<xs:documentation>
+				An DeniedSgner defines a deny rule
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence minOccurs="1" maxOccurs="1">
+				<xs:element ref="ExceptAllowRule" minOccurs="0" maxOccurs="10000000"/>
+			</xs:sequence>
+			<xs:attribute name="SignerId" type="SignerIdType" use ="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Update Policy Signer-->
+	<xs:element name="UpdatePolicySigner">
+		<xs:annotation>
+			<xs:documentation>
+				defines a signer for System Integrity Policy Updating
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="SignerId" type="SignerIdType" use ="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="UpdatePolicySigners">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of UpdatePolicySigner.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="UpdatePolicySigner"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<!-- Supplemental Policy Signer-->
+	<xs:element name="SupplementalPolicySigner">
+		<xs:annotation>
+			<xs:documentation>
+				defines a signer for Supplemental policies.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="SignerId" type="SignerIdType" use ="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="SupplementalPolicySigners">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of SupplementalPolicySigner.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="SupplementalPolicySigner"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Signers for CI -->
+	<xs:element name="CiSigner">
+		<xs:annotation>
+			<xs:documentation>
+				defines a signer that CI will trust for CI signing levels.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:attribute name="SignerId" type="SignerIdType" use ="required" />
+		</xs:complexType>
+	</xs:element>
+	
+	<xs:complexType name="CiSignersType">
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="CiSigner"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+	</xs:complexType>
+
+	<xs:element name="CiSigners">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of CiSigner.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="CiSigner"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+
+	<xs:element name="Signers">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of signers.
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="10000000">
+				<xs:element ref="Signer"  minOccurs="0" maxOccurs="10000000" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="Signer">
+		<xs:annotation>
+			<xs:documentation>
+				A Signer
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence minOccurs="1" maxOccurs="1">
+				<xs:element ref="CertRoot" minOccurs="1" maxOccurs="1"/>
+				<xs:element ref="CertEKU" minOccurs="0" maxOccurs="255"/>
+				<xs:element ref="CertIssuer" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="CertPublisher" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="CertOemID" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="FileAttribRef" minOccurs="0" maxOccurs="10000000"/>
+			</xs:sequence>
+			<xs:attribute name="Name" type="SignerNameType" use="required" />
+			<xs:attribute name="ID" type="SignerIdType" use="required" />
+			<xs:attribute name="SignTimeAfter" type="SignTimeType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+
+	<xs:element name="SigningScenarios">
+		<xs:annotation>
+			<xs:documentation>
+				Collection of SigningScenarios
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:choice minOccurs="1" maxOccurs="255">
+				<xs:element ref="SigningScenario"  minOccurs="0" maxOccurs="255" />
+			</xs:choice>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="SigningScenario">
+		<xs:annotation>
+			<xs:documentation>
+				Define a Signing Scenario
+			</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:sequence minOccurs="1"  maxOccurs="1">
+				<xs:element name="ProductSigners" type="CiSignersType" minOccurs="1" maxOccurs="1"/>
+				<xs:element name="TestSigners" type="CiSignersType" minOccurs="0" maxOccurs="1"/>
+				<xs:element name="TestSigningSigners" type="CiSignersType" minOccurs="0" maxOccurs="1"/>
+			</xs:sequence>
+			<xs:attribute name="ID" type="SigningScenarioIDType" use="required" />
+			<xs:attribute name="FriendlyName" type="SignerNameType" use="optional" />
+			<xs:attribute name="Value" type="xs:unsignedByte" use="required" />
+			<xs:attribute name="InheritedScenarios" type="SigningScenarioIDsType" use="optional" />
+			<xs:attribute name="MinimumHashAlgorithm" type="HashAlgorithmType" use="optional" />
+		</xs:complexType>
+	</xs:element>
+
+	<!-- Defines the policy ID (for supplemental policies) or publisher (for base policies) -->
+	<!-- <xs:complexType name="PolicyNameType">
+		<xs:choice>
+			<xs:element name="Publisher" type="PolicyPublisherType" />
+			<xs:element name="ID" type="GuidType" />
+		</xs:choice>
+	</xs:complexType>-->
+
+	<!-- The Secure Boot Policy definition-->
+	<xs:element name="SbPolicy">
+		<xs:complexType>
+			<xs:all>
+				<xs:element name="PolicyVersion" type="DWordType" minOccurs="0" maxOccurs="1"/>
+				<xs:element name="PolicyPublisher" type="PolicyPublisherType" minOccurs="1" maxOccurs="1"/>
+				<xs:element name="DeviceID" type="QWordType" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>
+							Device-unique 64-bit value.
+							For a base policy signed by PK to load, this must match the contents of nvram+bootservices variable:
+							{77fa9abd-0359-4d32-bd60-28f4e78f784b}::CopyOfDeviceID
+							As you control PK, you can just set this yourself, alongside the CurrentActivePolicy variable.
+						</xs:documentation>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="Rules" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>
+							Set of bitflags used to configure settings.
+							Different bits can be used by: all boot applications, winload, kernel, or CI.
+						</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Rule" type="RuleType" minOccurs="0" maxOccurs="32"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<!-- supplemental policy stuff
+				<xs:element name="RulesToRemove" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>
+							When this supplemental policy is merged, these rule bitflags will be unset.
+						</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Rule" type="RuleType" minOccurs="0" maxOccurs="32"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				-->
+				<xs:element ref="EKUs" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="Signers" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="SigningScenarios" minOccurs="0" maxOccurs="1"/>
+				<!-- <xs:element ref="UpdatePolicySigners" minOccurs="0" maxOccurs="1"/> -->
+				<xs:element ref="CiSigners" minOccurs="0" maxOccurs="1"/>
+				<xs:element ref="BcdRules" minOccurs="0" maxOccurs="1" />
+<!-- supplemental policy stuff...
+				<xs:element name="KnownPolicies" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>
+							Defines supplemental policies that are allowed to be loaded.
+						</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="PolicyID" type="GuidType" minOccurs="0" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="AuthorisedPolicies" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>
+							Defines loaded policies that are allowed to be merged.
+						</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="PolicyID" type="GuidType" minOccurs="0" maxOccurs="unbounded"/>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+-->
+				<xs:element ref="Settings" minOccurs="0" maxOccurs="1"/>
+			</xs:all>
+			<xs:attribute name="FriendlyName" type="xs:string" use="optional" />
+<!-- supplemental policy stuff...
+			<xs:attribute name="PolicyType" type="PolicyType" use="optional" />
+-->
+		</xs:complexType>
+	</xs:element>
+</xs:schema>
